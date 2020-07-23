@@ -1,0 +1,64 @@
+---
+title: "Land use trajectories"
+output: html_notebook
+---
+
+```{r setup, include=FALSE}
+library(reticulate)
+use_virtualenv('/home/dutrieux/.virtualenvs/lsru', required = TRUE)
+```
+
+The objective of this notebook is to demonstrate, in a reproducible way, how land use/cover trajectories can be retrieved from a time-series of landsat images.
+It uses python for data download (see lsru package), and R for all subsequent steps (stars and sf for spatio-temporal data handling and strucchange for breakpoints detection).
+
+# Data download
+
+We download the whole landsat archive for a small study area (about 25 squared kilometers) in southern Mexico, close to Boca de Chajul, Chiapas.
+
+```{python}
+import datetime
+
+from lsru import Usgs, Espa
+from shapely.geometry import Point
+
+# Define extent of data order (buffer of 0.02 degrees (about 2 km) around POint)
+bbox = Point(-90.9264, 16.0935).buffer(0.02).bounds
+# Instatiate usgs class and login
+usgs = Usgs()
+usgs.login()
+
+for collection in [4,5,7,8]:
+    # Query the Usgs api to find scene intersecting with the spatio-temporal window
+    scene_list = usgs.search(collection=Usgs.get_collection_name(collection),
+                             bbox=bbox,
+                             begin=datetime.datetime(1982,1,1),
+                             end=datetime.datetime(2020,7,1),
+                             max_results=10000,
+                             max_cloud_cover=60)
+                             
+    if not scene_list:
+        break
+    
+    # Extract Landsat scene ids for each hit from the metadata
+    scene_list = [x['displayId'] for x in scene_list]
+    print(scene_list)
+    
+    # Instantiate Espa class
+    espa = Espa()
+    
+    # Place order (full scenes, no reprojection, sr and pixel_qa)
+    proj_params = {'aea': {'central_meridian': -90.0,
+                           'datum': 'wgs84',
+                           'false_easting': 0,
+                           'false_northing': 0,
+                           'latitude_of_origin': 16.0,
+                           'standard_parallel_1': 15,
+                           'standard_parallel_2': 17}}
+    order = espa.order(scene_list=scene_list, products=['sr', 'pixel_qa'],
+                       projection=proj_params, note='Landsat %d chiapas' % collection,
+                       extent=bbox, resolution=30)
+    print(order.status)
+
+
+```
+
