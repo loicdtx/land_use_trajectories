@@ -1,11 +1,13 @@
 ---
 title: "Land use trajectories"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
 ---
 
 ```{r setup, include=FALSE}
 library(reticulate)
-use_virtualenv('/home/dutrieux/.virtualenvs/lsru', required = TRUE)
+use_virtualenv('/home/loic/.virtualenvs/lsru', required = TRUE)
 ```
 
 The objective of this notebook is to demonstrate, in a reproducible way, how land use/cover trajectories can be retrieved from a time-series of landsat images.
@@ -27,7 +29,7 @@ bbox = Point(-90.9264, 16.0935).buffer(0.02).bounds
 usgs = Usgs()
 usgs.login()
 
-for collection in [4,5,7,8]:
+for collection in [5,7,8]:
     # Query the Usgs api to find scene intersecting with the spatio-temporal window
     scene_list = usgs.search(collection=Usgs.get_collection_name(collection),
                              bbox=bbox,
@@ -41,7 +43,6 @@ for collection in [4,5,7,8]:
     
     # Extract Landsat scene ids for each hit from the metadata
     scene_list = [x['displayId'] for x in scene_list]
-    print(scene_list)
     
     # Instantiate Espa class
     espa = Espa()
