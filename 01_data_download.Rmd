@@ -18,7 +18,7 @@ It uses python for data download (see lsru package), and R for all subsequent st
 We download the whole landsat archive for a small study area (about 25 squared kilometers) in southern Mexico, close to Boca de Chajul, Chiapas.
 
 ```{python}
-import datetime
+import datetime, os
 
 from lsru import Usgs, Espa
 from shapely.geometry import Point
@@ -63,3 +63,20 @@ for collection in [5,7,8]:
 
 ```
 
+
+Once the orders are complete (can be checked via the espa insterface or with lsru `Order` class), download all the scenes.
+
+
+```{python}
+from lsru import Espa
+import os
+
+# Instantiate Espa class
+espa = Espa()
+dl_dir = os.path.expanduser('~/sandbox/landsat_chiapas')
+
+os.makedirs(dl_dir, exist_ok=True)
+
+for order in espa.orders:
+    order.download_all_complete(dl_dir, unpack=True)
+```

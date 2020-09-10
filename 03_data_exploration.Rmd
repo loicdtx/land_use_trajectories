@@ -1,0 +1,58 @@
+---
+title: "Data exploration"
+output:
+  html_document:
+    df_print: paged
+---
+
+    
+Visualize the data to get a sense of data availability; how it is spred along time, what the temporal patterns look like, etc
+    
+```{R}
+library(stars)
+library(dplyr)
+library(ggplot2)
+
+data_dir <- '/home/loic/sandbox/landsat_chiapas/'
+```
+
+Load previously saved objects.
+
+```{R}
+landsat_cube <- readRDS(file.path(data_dir, 'chiapas_cube.rds'))
+```
+
+Clean data and compute ndvi.
+
+```{R}
+mask <- mutate(landsat_cube, mask=bitwAnd(pixel_qa, 0x2) != 0) %>%
+  select(mask)
+landsat_cube[!mask] <- NA
+```
+
+Visualize a random time-series.
+
+```{R}
+df_ts <- landsat_cube %>%
+  mutate(ndvi=(nir-red)/(nir+red)) %>%
+  slice('x', 110) %>%
+  slice('y', 120) %>%
+  aggregate(by='year', FUN=max, na.rm=TRUE) %>%
+  data.frame()
+
+ggplot(df_ts) +
+    geom_point(aes(time, ndvi))
+```
+
+```{R}
+landsat_cube_compact <- landsat_cube %>%
+  select(-pixel_qa) %>%
+  merge() %>%
+  setNames("Landsat") %>%
+  st_set_dimensions(names = c("x", "y", "time", "band"))
+```
+
+```{R}
+plot(landsat_cube_compact["Landsat",,,8], rgb=c(1,2,3))
+
+```

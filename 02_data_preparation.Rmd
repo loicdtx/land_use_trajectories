@@ -1,0 +1,81 @@
+---
+title: "Data preparation"
+output:
+  html_document:
+    df_print: paged
+---
+
+We have just dowloaded a list of Landsat scenes (cropped and reprojected to a common grid); here we will assemble these data into a single spatio temporal `stars` object. We will end this chapter with some examples of data manipulations and visualization.
+
+```{r}
+library(stars)
+library(stringr)
+
+data_dir <- '/home/loic/sandbox/landsat_chiapas/'
+```
+
+```{r}
+scene_list <- list.dirs(data_dir, recursive=FALSE)
+length(scene_list)
+```
+
+The list of scenes contains data from different sensors; OLI, ETM+, TM4 and TM5. Band number correspond to different spectral channels between OLI and the other sensors. We will therefore create a mapping of band number, spectral channel correspondance to ease harmonization into a single object.
+See famous figure at https://landsat.gsfc.nasa.gov/landsat-data-continuity-mission/.
+
+```{r}
+band_color_mapping <- list(TM=list(blue='sr_band1',
+                                   green='sr_band2',
+                                   red='sr_band3',
+                                   nir='sr_band4',
+                                   swir1='sr_band5',
+                                   swir2='sr_band7',
+                                   pixel_qa='pixel_qa'),
+                           OLI=list(blue='sr_band2',
+                                    green='sr_band3',
+                                    red='sr_band4',
+                                    nir='sr_band5',
+                                    swir1='sr_band6',
+                                    swir2='sr_band7',
+                                    pixel_qa='pixel_qa'))
+
+# To 'query' the band index of a color we can do
+band_color_mapping[['OLI']][['green']]
+```
+
+```{R}
+read_band <- function(data_dir, band, color_mapping=band_color_mapping){
+    tm_files <- list.files(data_dir,
+                           pattern=sprintf('(LT05|LT04|LE07).*_%s\\.tif$', band_color_mapping$TM[[band]]), 
+                           full.names=TRUE, recursive=TRUE)
+    oli_files <- list.files(data_dir,
+                            pattern=sprintf('LC08.*_%s\\.tif$', band_color_mapping$OLI[[band]]),
+                            full.names=TRUE, recursive=TRUE)
+    tm_dates <- as.Date(str_match(tm_files,
+                                  pattern='L(C|T|E)(\\d{2})_([A-Z0-9]{4})_(\\d{3})(\\d{3})_(\\d{8})_(\\d{8})_(\\d{2})_([A-Z0-9]{2})')[,7],
+                        format='%Y%m%d')
+    oli_dates <- as.Date(str_match(oli_files,
+                                   pattern='L(C|T|E)(\\d{2})_([A-Z0-9]{4})_(\\d{3})(\\d{3})_(\\d{8})_(\\d{8})_(\\d{2})_([A-Z0-9]{2})')[,7],
+                         format='%Y%m%d')
+    tm_cube <- read_stars(tm_files, along=list(time=tm_dates))
+    oli_cube <- read_stars(oli_files, along=list(time=oli_dates))
+    return(c(tm_cube, oli_cube, along=3) %>% setNames(band))
+}
+
+blue_cube <- read_band(data_dir, 'blue')
+green_cube <- read_band(data_dir, 'green')
+red_cube <- read_band(data_dir, 'red')
+nir_cube <- read_band(data_dir, 'nir')
+swir1_cube <- read_band(data_dir, 'swir1')
+swir2_cube <- read_band(data_dir, 'swir2')
+qa_cube <- read_band(data_dir, 'pixel_qa')
+landsat_cube <- c(blue_cube, green_cube, red_cube, nir_cube, swir1_cube, swir2_cube, qa_cube)
+```
+
+
+Save as rds (not very satisfying, but stars does not yet have the capability to export such object as netcdf).
+
+```{R}
+saveRDS(landsat_cube, file.path(data_dir, 'chiapas_cube.rds'))
+```
+
+
